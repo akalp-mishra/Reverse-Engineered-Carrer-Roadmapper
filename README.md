@@ -46,7 +46,7 @@ This is a forward-looking work plan, not a claim that those remaining tasks have
 
 - **React 19** renders the landing, explore, roadmap builder, authentication, and dashboard interfaces.
 - **Vite** provides the local frontend development server and production build.
-- **Express 5** provides server-side API routes for career research and step advice. During development, `npm run dev` starts Vite and the API server together. On Vercel, `api/[...path].js` exposes the Express app as a serverless function for `/api/*` requests.
+- **Express 5** provides server-side API routes for career research and step advice. During development, `npm run dev` starts Vite and the API server together. On Vercel, `api/[...path].js` exposes general API requests, while explicit functions under `api/roadmaps/` ensure the nested roadmap endpoints are routed to Express.
 - API work is request/response based: the browser sends an authenticated request and waits for a result. There is no live Supabase Realtime subscription or background job queue in the current implementation.
 
 ### AI and research
@@ -107,7 +107,7 @@ npm run lint
 npm run build
 ```
 
-To serve the built app through Express, run `npm run build` followed by `npm start`. For Vercel, deploy the project root with the Vite framework preset; the `api/[...path].js` function routes API requests to Express. Configure the same environment variables in the deployment platform's secret/environment settings, including `CONTEXT_DEV_API_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY`. After deployment, verify `/api/health` returns JSON before testing roadmap research.
+To serve the built app through Express, run `npm run build` followed by `npm start`. For Vercel, deploy the project root with the Vite framework preset; the files under `api/` route requests to Express. Configure the same environment variables in the deployment platform's secret/environment settings, including `CONTEXT_DEV_API_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY`. After deployment, verify `/api/health` returns JSON and an unauthenticated `POST /api/roadmaps/research` returns `401` JSON before testing roadmap research.
 
 **Live URL:** Not deployed yet. Add the production URL here after deployment.
 
