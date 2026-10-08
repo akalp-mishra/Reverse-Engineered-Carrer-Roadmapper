@@ -7,7 +7,7 @@ import { generateStepAdvice, researchCareerRoadmap } from './context-client.js'
 
 config({ path: '.env.local' })
 
-const app = express()
+export const app = express()
 const port = Number(process.env.PORT) || 8787
 const supabaseUrl = process.env.VITE_SUPABASE_URL
 const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -179,6 +179,8 @@ if (existsSync(distDirectory)) {
   app.get(/^(?!\/api).*/, (_request, response) => response.sendFile(join(distDirectory, 'index.html')))
 }
 
-app.listen(port, process.env.HOST || '0.0.0.0', () => {
-  console.log(`CareerX API server listening on http://127.0.0.1:${port}`)
-})
+if (!process.env.VERCEL) {
+  app.listen(port, process.env.HOST || '0.0.0.0', () => {
+    console.log(`CareerX API server listening on http://127.0.0.1:${port}`)
+  })
+}
