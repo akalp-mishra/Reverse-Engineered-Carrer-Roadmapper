@@ -353,6 +353,12 @@ body,.marketing-page,.dashboard-shell { background-color: #0A0A0A; color: #FAFAF
 .topbar-email { max-width: min(32vw, 320px); overflow: hidden; color: #d4c79c; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .map-controls .recenter-control { min-width: auto; }
 .map-controls .recenter-control::before { content: '◎'; margin-right: 5px; color: #F5D76E; }
+.map-controls .download-roadmap-control { display: grid; width: 28px; min-width: 28px; place-items: center; padding: 0; }
+.map-download-error { margin: -5px 0 10px; color: #ffabb8; font-size: 12px; }
+.dash-grid { grid-template-columns: minmax(0,1fr); }
+.dashboard-roadmap-support { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.dashboard-roadmap-support .streak-card { grid-column: auto; }
+.dashboard-roadmap-map .roadmap-map-viewport { height: clamp(500px,46vw,660px); }
 
 @media (max-width: 520px) {
   .dashboard-sidebar { width: 145px; flex-basis: 145px; padding-right: 7px; padding-left: 7px; }
@@ -364,4 +370,16 @@ body,.marketing-page,.dashboard-shell { background-color: #0A0A0A; color: #FAFAF
   .topbar-right { gap: 6px; }
   .logout-button { padding: 5px 7px; font-size: 10px; }
   .map-controls { flex-wrap: wrap; justify-content: flex-end; }
+}
+
+@media (max-width: 780px) {
+  .dashboard-roadmap-support { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .dashboard-roadmap-support .streak-card { grid-column: 1 / -1; }
+  .dashboard-roadmap-map .roadmap-map-viewport { height: clamp(390px,65vw,500px); }
+}
+
+@media (max-width: 520px) {
+  .dashboard-roadmap-support { grid-template-columns: 1fr; }
+  .dashboard-roadmap-support .streak-card { grid-column: auto; }
+  .dashboard-roadmap-map .roadmap-map-viewport { height: 400px; }
 }

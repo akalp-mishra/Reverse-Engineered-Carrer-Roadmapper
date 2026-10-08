@@ -155,19 +155,14 @@ function ExplorePage({ navigate }) {
 }
 
 function RoadmapBuilderPage({ navigate }) {
-  const [prefillRole] = useState(() => sessionStorage.getItem('careerx:roadmap-prefill') || '')
-  const [role, setRole] = useState(prefillRole || 'Full Stack Developer')
-  const [company, setCompany] = useState(prefillRole ? '' : 'Climate Tech startup')
+  const [role, setRole] = useState('')
+  const [company, setCompany] = useState('')
   const [background, setBackground] = useState('')
   const [hoursPerWeek, setHoursPerWeek] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saveWarning, setSaveWarning] = useState('')
   const [result, setResult] = useState(null)
-
-  useEffect(() => {
-    if (prefillRole) sessionStorage.removeItem('careerx:roadmap-prefill')
-  }, [prefillRole])
 
   const generate = async (event) => {
     event.preventDefault()
@@ -200,6 +195,7 @@ function RoadmapBuilderPage({ navigate }) {
       try {
         const roadmapId = await saveRoadmap(payload.roadmap, { role, hoursPerWeek }, payload.sources || [])
         setResult({ ...payload, role, roadmapId })
+        navigate('/dashboard')
       } catch (saveError) {
         setResult({ ...payload, role })
         setSaveWarning(`The research is ready, but we couldn't save it to your account: ${saveError.message}`)
@@ -270,7 +266,7 @@ function RoadmapBuilderPage({ navigate }) {
             <div className="eyebrow">MAKE IT YOURS</div>
             <h2>Where do you want to go?</h2>
             <label htmlFor="career-goal">Career goal</label>
-            <input id="career-goal" value={role} onChange={(event) => setRole(event.target.value)} minLength={3} maxLength={120} required />
+            <input id="career-goal" value={role} onChange={(event) => setRole(event.target.value)} minLength={3} maxLength={120} placeholder="e.g. Product designer" required />
             <label htmlFor="target-company">Company or industry</label>
             <input id="target-company" value={company} onChange={(event) => setCompany(event.target.value)} maxLength={120} placeholder="e.g. climate tech, healthcare, or a company name" />
             <label htmlFor="career-background">Your current experience <span>optional</span></label>
@@ -331,7 +327,7 @@ function RoadmapResults({ roadmap, role, roadmapId, sources, partial, credits })
   )
 }
 
-function InteractiveRoadmap({ roadmap, role, roadmapId }) {
+function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
   const phases = Array.isArray(roadmap.phases) ? roadmap.phases : []
   const storageKey = `careerx-known-skills:${roadmapId || role}`
   const [knownSkills, setKnownSkills] = useState(() => {
@@ -347,6 +343,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId }) {
   const [adviceSources, setAdviceSources] = useState([])
   const [adviceError, setAdviceError] = useState('')
   const [adviceLoading, setAdviceLoading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(knownSkills))
@@ -533,7 +530,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId }) {
 
   const movePan = (event) => {
     if (!drag) return
-    setPan({ x: drag.panX + event.clientX - drag.pointerX, y: drag.panY + event.clientY - drag.pointerY })
+    setPan({ x: drag.panX + (event.clientX - drag.pointerX) * 0.65, y: drag.panY + (event.clientY - drag.pointerY) * 0.65 })
   }
 
   const finishPan = (event) => {
@@ -564,18 +561,28 @@ function InteractiveRoadmap({ roadmap, role, roadmapId }) {
     const handleWheel = (event) => {
       event.preventDefault()
       event.stopPropagation()
-      setZoom((value) => Math.max(0.25, Math.min(1.7, value + (event.deltaY < 0 ? 0.08 : -0.08))))
+      setZoom((value) => Math.max(0.25, Math.min(1.7, value - event.deltaY * 0.0004)))
     }
     viewport.addEventListener('wheel', handleWheel, { passive: false })
     return () => viewport.removeEventListener('wheel', handleWheel)
   }, [])
 
+  const downloadRoadmap = async () => {
+    setDownloadError('')
+    try {
+      await downloadRoadmapDocument({ ...roadmap, role })
+    } catch (error) {
+      setDownloadError(`Couldn't create the Word document: ${error.message}`)
+    }
+  }
+
   return (
-    <section className="interactive-roadmap panel">
+    <section className={`interactive-roadmap panel${large ? ' dashboard-roadmap-map' : ''}`}>
       <div className="interactive-roadmap-heading">
         <div><div className="eyebrow">YOUR INTERACTIVE PATH</div><h2>Explore each step</h2><p>Career goal → phases → skills and milestones → target role · Drag to pan · Zoom only inside the map</p></div>
-        <div className="map-controls"><button aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.25, value - 0.15))}>−</button><span>{Math.round(zoom * 100)}%</span><button aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.7, value + 0.15))}>+</button><button className="recenter-control" aria-label="Recenter roadmap" title="Fit the full roadmap in view" onClick={centerMap}>Recenter</button></div>
+        <div className="map-controls"><button aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.25, value - 0.08))}>−</button><span>{Math.round(zoom * 100)}%</span><button aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.7, value + 0.08))}>+</button><button className="recenter-control" aria-label="Recenter roadmap" title="Fit the full roadmap in view" onClick={centerMap}>Recenter</button><button className="download-roadmap-control" aria-label="Download roadmap as a Word document" title="Download roadmap as a Word document" onClick={downloadRoadmap}><Icon name="book" size={14} /></button></div>
       </div>
+      {downloadError && <p className="map-download-error" role="alert">{downloadError}</p>}
       <div className={`interactive-map-layout${selectedNode ? ' has-selection' : ''}`}>
         <div ref={mapViewportRef} className="roadmap-map-viewport" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={finishPan} onPointerCancel={finishPan}>
           <div className="roadmap-map" style={{ width: canvasWidth, height: canvasHeight, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
@@ -633,7 +640,6 @@ function DashboardPage({ navigate }) {
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [completedItems, setCompletedItems] = useState([])
   const [streakDates, setStreakDates] = useState([])
-  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -760,16 +766,7 @@ function DashboardPage({ navigate }) {
       return false
     }
   })
-  const exportRoadmap = async () => {
-    setDownloadError('')
-    try {
-      await downloadRoadmapDocument(savedRoadmap)
-    } catch (exportError) {
-      setDownloadError(`Couldn't create the Word document: ${exportError.message}`)
-    }
-  }
   const researchSavedRoadmap = () => {
-    if (savedRoadmap?.role) sessionStorage.setItem('careerx:roadmap-prefill', savedRoadmap.role)
     navigate('/roadmap')
   }
   const logout = async () => {
@@ -805,17 +802,15 @@ function DashboardPage({ navigate }) {
               {roadmaps.map((roadmap) => <option key={roadmap.id} value={roadmap.id}>{roadmap.role}{roadmap.hasDetailedJourney ? '' : ' · saved skills only'}</option>)}
             </select>
             <button className="button button-small" onClick={researchSavedRoadmap}>{savedRoadmap?.hasDetailedJourney ? 'New roadmap' : 'Rebuild this roadmap'} <Icon name="arrow" size={13} /></button>
-            <button className="button button-small secondary-button" onClick={exportRoadmap} disabled={!savedRoadmap}>Download Word <Icon name="book" size={14} /></button>
           </div>
-          {downloadError && <p className="profile-load-error" role="alert">{downloadError}</p>}
           <div className="dash-grid">
             <section className="roadmap-panel panel">
               <div className="panel-heading"><div><div className="eyebrow">YOUR SAVED CAREER ROADMAP</div><h2>{savedRoadmap?.role || 'Your roadmap'} <span className="edit-mark">↗</span></h2><p>{savedRoadmap?.total_timeline || 'Your learning path, connected to your career goal.'}</p></div></div>
               {roadmapLoading ? <div className="dashboard-roadmap-empty">Loading your saved roadmap…</div> : savedRoadmap?.phases?.length
-                ? <InteractiveRoadmap key={savedRoadmap.id} roadmap={savedRoadmap} role={savedRoadmap.role} roadmapId={savedRoadmap.id} />
+                ? <InteractiveRoadmap key={savedRoadmap.id} roadmap={savedRoadmap} role={savedRoadmap.role} roadmapId={savedRoadmap.id} large />
                 : <div className="dashboard-roadmap-empty"><h3>No journey details are visible for this roadmap yet</h3><p>Run <code>20261008135800_roadmap_nodes_owner_policies.sql</code> in Supabase SQL Editor and refresh. If the phases are still missing, rebuild this roadmap to save its full DAG and timeline.</p><button className="button button-small" onClick={researchSavedRoadmap}>Rebuild this roadmap <Icon name="arrow" size={13} /></button></div>}
             </section>
-            <aside className="right-column">
+            <aside className="right-column dashboard-roadmap-support">
               <section className="panel progress-panel"><div className="panel-small-title"><span>ROADMAP AT A GLANCE</span></div><div className="dashboard-stat"><strong>{savedRoadmap?.phases?.length || 0}</strong><span>learning phases</span></div><div className="dashboard-stat"><strong>{skills.length}</strong><span>skills to build</span></div><div className="dashboard-stat"><strong>{savedRoadmap?.phases?.reduce((sum, phase) => sum + (Array.isArray(phase.milestones) ? phase.milestones.length : 0), 0) || 0}</strong><span>milestones</span></div>{savedRoadmap?.sources?.length > 0 && <p className="dashboard-source-count">{savedRoadmap.sources.length} research sources saved with your plan</p>}</section>
               <section className="panel today-panel"><div className="panel-small-title"><span>HOW TO USE YOUR MAP</span></div><div className="dashboard-guide-step"><span>01</span><p>Click any phase, skill, or milestone for focused advice.</p></div><div className="dashboard-guide-step"><span>02</span><p>Mark skills you already know to simplify your path.</p></div><div className="dashboard-guide-step"><span>03</span><p>Pan or zoom inside the map to explore the full route.</p></div></section>
               <section className="streak-card"><div className="streak-flame">✦</div><div><strong>{currentStreak}-day login streak</strong><p>Days you visited CareerX while signed in.</p></div><div className="streak-days">{activeWeek.map((day) => <span className={streakDates.includes(day.date) ? 'day-complete' : ''} key={day.date}>{streakDates.includes(day.date) ? '✓' : day.label}</span>)}</div></section>
