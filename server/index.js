@@ -169,6 +169,10 @@ app.post('/api/roadmaps/advice', async (request, response) => {
   }
 })
 
+app.use('/api', (_request, response) => {
+  response.status(404).json({ error: 'API route not found.' })
+})
+
 const distDirectory = join(process.cwd(), 'dist')
 if (existsSync(distDirectory)) {
   app.use(express.static(distDirectory))

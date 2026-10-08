@@ -44,6 +44,19 @@ function readCompletedItems(userId, roadmapId) {
   return JSON.parse(localStorage.getItem(`careerx:progress:${userId}:${roadmapId}`) || '[]')
 }
 
+async function readApiResponse(response, feature) {
+  const responseText = await response.text()
+  let payload
+  try {
+    payload = JSON.parse(responseText)
+  } catch {
+    throw new Error(
+      `${feature} returned a webpage instead of data (HTTP ${response.status}). The API server may be unavailable or not connected to this app's /api route.`
+    )
+  }
+  return payload
+}
+
 function Icon({ name, size = 18 }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
   const shapes = {
@@ -188,7 +201,7 @@ function RoadmapBuilderPage({ navigate }) {
         },
         body: JSON.stringify({ role, company, background, hoursPerWeek: Number(hoursPerWeek) }),
       })
-      const payload = await response.json()
+      const payload = await readApiResponse(response, 'Roadmap research')
       if (!response.ok) throw new Error(payload.error || 'Roadmap research failed.')
       setResult(payload)
 
@@ -239,7 +252,7 @@ function RoadmapBuilderPage({ navigate }) {
     if (roadmapError) throw roadmapError
 
     const nodes = [
-      ...phases.map((phase) => ({ roadmap_id: savedRoadmap.id, section_type: 'phase', content: phase })),
+      { roadmap_id: savedRoadmap.id, section_type: 'phase', content: phases },
       { roadmap_id: savedRoadmap.id, section_type: 'entry_level_positions', content: roadmap.entry_level_positions || [] },
       { roadmap_id: savedRoadmap.id, section_type: 'timeline', content: { total_timeline: roadmap.total_timeline, hours_per_week: form.hoursPerWeek, assumptions: roadmap.assumptions || [] } },
       { roadmap_id: savedRoadmap.id, section_type: 'first_90_days', content: roadmap.first_90_days || [] },
@@ -514,7 +527,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
           context: selectedNode.phaseContext,
         }),
       })
-      const payload = await response.json()
+      const payload = await readApiResponse(response, 'Step advice')
       if (!response.ok) throw new Error(payload.error || 'Step advice could not be generated.')
       setAdvice(payload.advice)
       setAdviceSources(Array.isArray(payload.sources) ? payload.sources : [])
@@ -684,7 +697,7 @@ function DashboardPage({ navigate }) {
           const nodes = nodesByRoadmap.get(row.id) || []
           const contents = (type) => nodes.filter((node) => node.section_type === type).map((node) => node.content)
           const timeline = contents('timeline')[0] || {}
-          const savedPhases = contents('phase')
+          const savedPhases = contents('phase').flatMap((content) => Array.isArray(content) ? content : content ? [content] : [])
           const fallbackSkills = Array.isArray(row.skills) ? row.skills : []
           const phases = savedPhases.length ? savedPhases : (fallbackSkills.length ? [{
           phase: 'Skills from your saved roadmap',
@@ -811,7 +824,7 @@ function DashboardPage({ navigate }) {
               <div className="panel-heading"><div><div className="eyebrow">YOUR SAVED CAREER ROADMAP</div><h2>{savedRoadmap?.role || 'Your roadmap'} <span className="edit-mark">↗</span></h2><p>{savedRoadmap?.total_timeline || 'Your learning path, connected to your career goal.'}</p></div></div>
               {roadmapLoading ? <div className="dashboard-roadmap-empty">Loading your saved roadmap…</div> : savedRoadmap?.phases?.length
                 ? <InteractiveRoadmap key={savedRoadmap.id} roadmap={savedRoadmap} role={savedRoadmap.role} roadmapId={savedRoadmap.id} large />
-                : <div className="dashboard-roadmap-empty"><h3>No journey details are visible for this roadmap yet</h3><p>Run <code>20261008135800_roadmap_nodes_owner_policies.sql</code> in Supabase SQL Editor and refresh. If the phases are still missing, rebuild this roadmap to save its full DAG and timeline.</p><button className="button button-small" onClick={researchSavedRoadmap}>Rebuild this roadmap <Icon name="arrow" size={13} /></button></div>}
+                : <div className="dashboard-roadmap-empty"><h3>This roadmap has no saved phase details</h3><p>It contains only a skill summary; its researched phases and timeline weren’t saved. Research this career goal again to create a complete roadmap.</p><button className="button button-small" onClick={researchSavedRoadmap}>Research a roadmap again <Icon name="arrow" size={13} /></button></div>}
             </section>
             <aside className="right-column dashboard-roadmap-support">
               <section className="panel progress-panel"><div className="panel-small-title"><span>ROADMAP AT A GLANCE</span></div><div className="dashboard-stat"><strong>{savedRoadmap?.phases?.length || 0}</strong><span>learning phases</span></div><div className="dashboard-stat"><strong>{skills.length}</strong><span>skills to build</span></div><div className="dashboard-stat"><strong>{savedRoadmap?.phases?.reduce((sum, phase) => sum + (Array.isArray(phase.milestones) ? phase.milestones.length : 0), 0) || 0}</strong><span>milestones</span></div>{savedRoadmap?.sources?.length > 0 && <p className="dashboard-source-count">{savedRoadmap.sources.length} research sources saved with your plan</p>}</section>
@@ -823,7 +836,7 @@ function DashboardPage({ navigate }) {
             <div className="panel-heading"><div><div className="eyebrow">THE JOURNEY</div><h2>Phases & timeline</h2><p>{savedRoadmap?.total_timeline || 'Timeline wasn’t saved with this roadmap.'}{savedRoadmap?.hours_per_week ? ` · ${savedRoadmap.hours_per_week} hours/week` : ''}</p></div></div>
             {savedRoadmap?.hasDetailedJourney
               ? <div className="journey-accordion">{savedRoadmap.phases.map((phase, index) => <details className="journey-phase panel" key={`${phase.phase}-${index}`}><summary><span className="phase-number">0{index + 1}</span><span className="journey-summary-copy"><strong>{phase.phase || `Phase ${index + 1}`}</strong><small>{phase.duration || 'Duration not provided'} · {(phase.skills || []).length} skills · {(phase.milestones || []).length} milestones</small></span><span className="journey-expand">Details <span>⌄</span></span></summary><div className="journey-phase-content"><p>{phase.objective}</p><div className="result-detail-grid"><div><strong>Skills to build</strong><ul>{(phase.skills || []).map((skill, skillIndex) => <li key={skillIndex}>{typeof skill === 'string' ? skill : skill?.name}{typeof skill === 'object' && skill?.rationale && <small>{skill.rationale}</small>}</li>)}</ul></div><div><strong>Portfolio projects</strong>{(phase.projects || []).map((project, projectIndex) => <div className="project-suggestion" key={projectIndex}><b>{typeof project === 'string' ? project : project?.title}</b>{typeof project === 'object' && project?.description && <small>{project.description}</small>}</div>)}<strong className="milestone-label">Milestones</strong><ul>{(phase.milestones || []).map((milestone, milestoneIndex) => <li key={milestoneIndex}>{milestone}</li>)}</ul></div></div></div></details>)}</div>
-              : <div className="legacy-roadmap-note">Detailed phases and timing aren’t visible for this saved roadmap. First apply <code>20261008135800_roadmap_nodes_owner_policies.sql</code> in Supabase SQL Editor and refresh; if they’re still missing, research this goal again. <button className="quiet-link" onClick={researchSavedRoadmap}>Rebuild this roadmap <Icon name="arrow" size={13} /></button></div>}
+              : <div className="legacy-roadmap-note">This saved roadmap contains only a skill summary; its detailed phases and timing weren’t saved. Research this career goal again to create a complete roadmap. <button className="quiet-link" onClick={researchSavedRoadmap}>Research a roadmap again <Icon name="arrow" size={13} /></button></div>}
             {savedRoadmap?.career_overview && <p className="dashboard-overview">{savedRoadmap.career_overview}</p>}
           </section>
           <div className="lower-grid">

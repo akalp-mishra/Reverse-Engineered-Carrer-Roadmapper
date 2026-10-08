@@ -1,3 +1,7 @@
+
+for testing usermail = testuser4@gmail.com password = 123456789 or create a new account
+
+
 # CareerX
 
 ## What it does
@@ -13,7 +17,7 @@ CareerX turns a specific career goal into a research-backed, interactive plan wi
 - React landing, career exploration, roadmap research, authentication, and dashboard experiences.
 - Supabase email/password authentication and per-user roadmap storage in `roadmaps` and `roadmap_nodes`.
 - Context.dev web research for structured career roadmaps and on-demand advice for individual roadmap steps.
-- Interactive career DAG with a career-goal root, phase/skill/milestone nodes, pan, zoom, and a Recenter control.
+- Interactive career roadmap with a career-goal start, skill tiers, and target-role goal; supports pan, zoom, and Recenter.
 - Skill completion, project tracking, saved-roadmap selection, roadmap journey/timeline, and progress views.
 - Download of a saved roadmap as a Word `.docx` document.
 - Luxury black-and-gold visual theme with Playwrite CA for large and medium headings.
@@ -56,8 +60,9 @@ This is a forward-looking work plan, not a claim that those remaining tasks have
 ### Authentication and data
 
 - **Supabase Auth** handles email/password sign-up, sign-in, and sessions.
-- **Supabase Postgres** stores each account's researched roadmap in `public.roadmaps`, with its phases, timeline, positions, plans, caveats, and sources in `public.roadmap_nodes`.
+- **Supabase Postgres** stores each account's researched roadmap in `public.roadmaps`; `public.roadmap_nodes` stores the associated detail sections. Because the database permits only one row per roadmap and section type, all phases are stored together as an array in the single `phase` row. The timeline, entry-level positions, first-90-days plan, caveats, and sources each use their own section row.
 - Row-level security policies are intended to restrict each account to its own roadmap records. Apply the project's SQL migrations to the existing tables before using this app.
+- Saving roadmap detail rows happens after the parent `roadmaps` row is created. If saving those rows fails, the parent may remain as a summary-only roadmap. Its missing research phases and timeline cannot be reconstructed from that summary; research the career goal again to create a complete saved roadmap.
 - Activity streaks and skill/project completion are currently stored in browser `localStorage`, scoped to the signed-in user and roadmap. They are not server-synced and can be lost if browser storage is cleared.
 - The dashboard reads saved roadmap records and their nodes when it loads; it does not subscribe to Supabase Realtime.
 
@@ -66,8 +71,8 @@ This is a forward-looking work plan, not a claim that those remaining tasks have
 1. The user signs in through Supabase Auth.
 2. The browser sends a session-authenticated request to the Express research endpoint.
 3. Express validates the Supabase session, validates the request, and asks Context.dev for structured research.
-4. The browser receives the result and saves the roadmap and associated nodes to Supabase under the signed-in user's ID.
-5. The dashboard loads those saved records and renders the interactive DAG and workspace views.
+4. The browser creates the roadmap record, then saves its detail sections to Supabase under the signed-in user's ID. Phases are saved as one array in the `phase` section row.
+5. The dashboard loads those saved records and renders the interactive roadmap and workspace views. Summary-only legacy records remain visible, but their missing phases and timeline require new research.
 
 ## What we added
 
@@ -90,10 +95,10 @@ Beyond the core goal of generating a career plan, CareerX includes:
 
 ### Setup
 
-Go to this Deployment Link :-
-for testing purposes:-
-   UserId- testuser2@gmail.com
-   password- 123456789
+ - Go to this Deployment Link :-reverse-engineered-carrer-roadmappe-six.vercel.app
+ - for testing purposes:-
+    - UserId- testuser4@gmail.com
+    - password- 123456789
 
 ### Production checks
 
