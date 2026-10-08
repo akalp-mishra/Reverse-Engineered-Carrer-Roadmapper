@@ -19,6 +19,7 @@ const answerFormat = {
       skills: [
         {
           name: '',
+          level: 'Beginner | Intermediate | Advanced',
           priority: '',
           rationale: '',
         },
@@ -85,7 +86,7 @@ export async function researchCareerRoadmap({ role, company, background, hoursPe
     `The learner can study approximately ${hoursPerWeek} hours per week.`,
     background ? `Their current background: ${background}` : 'Assume the learner is early-career and state any assumptions.',
     'Use current job-market evidence and credible sources. Break the path into logical, ordered phases with realistic durations that add up to the total timeline.',
-    'For every phase include the objective, prioritized skills with a short rationale, a practical portfolio project, and measurable milestones.',
+    'For every phase include the objective, skills with a short rationale, a practical portfolio project, and measurable milestones. For every skill set level to exactly Beginner, Intermediate, or Advanced. Assign prerequisite skills to earlier levels. Skills at the same level can be learned in parallel.',
     'Identify realistic entry-level job titles and the skills/employers expect for those roles. Give a practical first-90-days plan.',
     'Distinguish typical requirements from role-specific preferences; do not invent precise guarantees. Cite current evidence with source URLs in the response sources.',
   ].join('\n')

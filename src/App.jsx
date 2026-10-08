@@ -352,11 +352,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
   const allNodes = phases.flatMap((phase, phaseIndex) => {
     const phaseName = phase.phase || `Phase ${phaseIndex + 1}`
     const skills = Array.isArray(phase.skills) ? phase.skills : []
-    const milestones = Array.isArray(phase.milestones) && phase.milestones.length
-      ? phase.milestones
-      : [phase.objective || `Complete ${phaseName}`]
-    return [
-      ...skills.map((skill, index) => {
+    return skills.map((skill, index) => {
         const name = typeof skill === 'string' ? skill : skill?.name || 'Core skill'
         const key = name.trim().toLowerCase()
         return {
@@ -364,27 +360,42 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
           key,
           title: name,
           kind: 'skill',
+          level: typeof skill === 'object' ? skill?.level || skill?.priority || '' : '',
           phase: phaseName,
           phaseIndex,
-          detail: typeof skill === 'object' ? skill?.rationale || phase.objective : phase.objective,
+          detail: typeof skill === 'object' ? skill?.rationale || '' : '',
           phaseContext: `${phase.objective || ''} Skills in this phase: ${skills.map((item) => typeof item === 'string' ? item : item?.name).filter(Boolean).join(', ')}. Projects: ${(phase.projects || []).map((item) => typeof item === 'string' ? item : item?.title).filter(Boolean).join(', ')}.`,
         }
-      }),
-      ...milestones.map((milestone, index) => ({
-        id: `phase-${phaseIndex}-milestone-${index}`,
-        key: null,
-        title: milestone,
-        kind: 'milestone',
-        phase: phaseName,
-        phaseIndex,
-        detail: phase.objective || '',
-        phaseContext: `${phase.objective || ''} Skills in this phase: ${skills.map((item) => typeof item === 'string' ? item : item?.name).filter(Boolean).join(', ')}. Projects: ${(phase.projects || []).map((item) => typeof item === 'string' ? item : item?.title).filter(Boolean).join(', ')}.`,
-      })),
-    ]
+      })
   })
   const visibleNodes = allNodes.filter((node) => node.kind !== 'skill' || !knownSkills.includes(node.key))
-  const maxRows = Math.max(1, ...phases.map((_, index) => visibleNodes.filter((node) => node.phaseIndex === index).length))
-  const canvasHeight = Math.max(380, 120 + maxRows * 130)
+  const levels = ['Beginner', 'Intermediate', 'Advanced']
+  const skillNodes = allNodes.filter((node) => node.kind === 'skill')
+  const skillLevel = (node) => {
+    const level = String(node.level || '').toLowerCase()
+    if (/\b(foundational|foundation|basic|beginner|entry.level)\b/.test(level)) return 'Beginner'
+    if (/\b(intermediate|mid.level)\b/.test(level)) return 'Intermediate'
+    if (/\b(advanced|expert|speciali[sz]ed)\b/.test(level)) return 'Advanced'
+    const skillIndex = skillNodes.findIndex((skill) => skill.id === node.id)
+    if (phases.length > 1) {
+      if (node.phaseIndex === 0) return 'Beginner'
+      if (node.phaseIndex === phases.length - 1) return 'Advanced'
+      return 'Intermediate'
+    }
+    if (skillNodes.length === 2) return skillIndex === 0 ? 'Beginner' : 'Advanced'
+    return levels[Math.min(levels.length - 1, Math.floor(skillIndex * levels.length / skillNodes.length))]
+  }
+  const levelRows = levels.map((level) => ({
+      level,
+      nodes: visibleNodes.filter((node) => node.kind === 'skill' && skillLevel(node) === level),
+    })).filter((row) => row.nodes.length)
+  const maxNodesPerRow = Math.max(1, ...levelRows.map((row) => row.nodes.length))
+  const cardWidth = 248
+  const cardGap = 22
+  const canvasWidth = Math.max(760, 96 + maxNodesPerRow * cardWidth + (maxNodesPerRow - 1) * cardGap)
+  const centerX = canvasWidth / 2
+  const rowTop = 212
+  const rowGap = 150
   const rootNode = {
     id: 'career-goal',
     kind: 'root',
@@ -392,36 +403,29 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
     phase: 'Your career goal',
     detail: roadmap.total_timeline || 'Your researched target career',
     phaseContext: roadmap.career_overview || '',
-    x: 34,
-    y: (canvasHeight - 100) / 2,
+    x: (canvasWidth - 230) / 2,
+    y: 36,
   }
   const positionedNodes = []
-  const phaseNodes = phases.map((phase, phaseIndex) => {
-    const phaseSteps = visibleNodes.filter((node) => node.phaseIndex === phaseIndex)
-    const phaseX = 340 + phaseIndex * 560
-    const firstStepY = 70
-    const phaseY = firstStepY + Math.max(0, phaseSteps.length - 1) * 65
-    const phaseNode = {
-      id: `phase-${phaseIndex}`,
-      kind: 'phase',
-      title: phase.phase || `Phase ${phaseIndex + 1}`,
-      phase: phase.phase || `Phase ${phaseIndex + 1}`,
-      detail: `${phase.duration || ''}${phase.objective ? ` · ${phase.objective}` : ''}`,
-      phaseContext: `${phase.objective || ''} Skills: ${(phase.skills || []).map((skill) => typeof skill === 'string' ? skill : skill?.name).filter(Boolean).join(', ')}.`,
-      phaseIndex,
-      x: phaseX,
-      y: phaseY,
-    }
-    positionedNodes.push(phaseNode)
-    phaseSteps.forEach((node, rowIndex) => {
-      positionedNodes.push({
-        ...node,
-        x: phaseX + 270,
-        y: firstStepY + rowIndex * 130,
-      })
-    })
-    return phaseNode
+  const positionedRows = levelRows.map((row, rowIndex) => {
+    const rowWidth = row.nodes.length * cardWidth + (row.nodes.length - 1) * cardGap
+    const firstX = (canvasWidth - rowWidth) / 2
+    const nodes = row.nodes.map((node, index) => ({
+      ...node,
+      levelLabel: row.level,
+      x: firstX + index * (cardWidth + cardGap),
+      y: rowTop + rowIndex * rowGap,
+    }))
+    positionedNodes.push(...nodes)
+    return { level: row.level, nodes, y: rowTop + rowIndex * rowGap }
   })
+  const layerHeadings = positionedRows.map((row) => ({
+    level: row.level,
+    y: row.y - 30,
+  }))
+  const goalY = positionedRows.length
+    ? positionedRows[positionedRows.length - 1].y + rowGap
+    : rowTop
   const goalNode = {
     id: 'career-target',
     kind: 'goal',
@@ -429,32 +433,31 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
     phase: 'Career target',
     detail: 'Build, demonstrate, and apply your skills.',
     phaseContext: roadmap.career_overview || '',
-    x: 340 + phases.length * 560,
-    y: (canvasHeight - 100) / 2,
+    x: (canvasWidth - 230) / 2,
+    y: goalY,
   }
-  const canvasWidth = Math.max(640, goalNode.x + 300)
-  const nodeEdges = []
-  if (phaseNodes.length) nodeEdges.push([rootNode, phaseNodes[0]])
-  else nodeEdges.push([rootNode, goalNode])
-  phaseNodes.forEach((phaseNode, phaseIndex) => {
-    const steps = positionedNodes.filter((node) => node.phaseIndex === phaseIndex && node.kind !== 'phase')
-    steps.forEach((step) => nodeEdges.push([phaseNode, step]))
-    const nextPhase = phaseNodes[phaseIndex + 1]
-    if (nextPhase) {
-      if (steps.length) steps.forEach((step) => nodeEdges.push([step, nextPhase]))
-      else nodeEdges.push([phaseNode, nextPhase])
+  const canvasHeight = Math.max(380, goalNode.y + 142)
+  const edgePaths = []
+  let previousCenters = [centerX]
+  let previousBottom = rootNode.y + 100
+  positionedRows.forEach((row) => {
+    const centers = row.nodes.map((node) => node.x + cardWidth / 2)
+    const junctionY = previousBottom + (row.y - previousBottom) / 2
+    edgePaths.push(`M ${previousCenters[0]} ${previousBottom} V ${junctionY}`)
+    if (previousCenters.length > 1) {
+      edgePaths.push(`M ${previousCenters[0]} ${junctionY} H ${previousCenters[previousCenters.length - 1]}`)
     }
-    else steps.forEach((step) => nodeEdges.push([step, goalNode]))
+    if (centers.length > 1) edgePaths.push(`M ${centers[0]} ${junctionY} H ${centers[centers.length - 1]}`)
+    centers.forEach((x) => edgePaths.push(`M ${x} ${junctionY} V ${row.y}`))
+    previousCenters = centers
+    previousBottom = row.y + 102
   })
-  const edges = nodeEdges.map(([from, to]) => {
-    const fromWidth = ['root', 'goal'].includes(from.kind) ? 230 : 248
-    const startX = from.x + fromWidth
-    const startY = from.y + 48
-    const endX = to.x
-    const endY = to.y + 42
-    const bend = Math.max(38, Math.abs(endX - startX) / 2)
-    return `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`
-  })
+  const goalJunctionY = previousBottom + (goalNode.y - previousBottom) / 2
+  edgePaths.push(`M ${previousCenters[0]} ${previousBottom} V ${goalJunctionY}`)
+  if (previousCenters.length > 1) {
+    edgePaths.push(`M ${previousCenters[0]} ${goalJunctionY} H ${previousCenters[previousCenters.length - 1]}`)
+  }
+  edgePaths.push(`M ${centerX} ${goalJunctionY} V ${goalNode.y}`)
   const graphNodes = [rootNode, ...positionedNodes, goalNode]
   const knownLabels = [...new Map(allNodes.filter((node) => node.kind === 'skill' && knownSkills.includes(node.key)).map((node) => [node.key, node.title])).entries()]
   const suggestedGithubUrl = (() => {
@@ -541,14 +544,13 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
   const centerMap = useCallback(() => {
     const viewport = mapViewportRef.current
     if (!viewport) return
-    const fitScale = Math.min(1, (viewport.clientWidth - 40) / canvasWidth, (viewport.clientHeight - 40) / canvasHeight)
-    const nextZoom = Math.max(0.25, fitScale)
+    const nextZoom = 1
     setZoom(nextZoom)
     setPan({
-      x: Math.max(20, (viewport.clientWidth - canvasWidth * nextZoom) / 2),
-      y: Math.max(20, (viewport.clientHeight - canvasHeight * nextZoom) / 2),
+      x: viewport.clientWidth / 2 - centerX * nextZoom,
+      y: 24,
     })
-  }, [canvasHeight, canvasWidth, setPan, setZoom])
+  }, [centerX, setPan, setZoom])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(centerMap)
@@ -579,7 +581,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
   return (
     <section className={`interactive-roadmap panel${large ? ' dashboard-roadmap-map' : ''}`}>
       <div className="interactive-roadmap-heading">
-        <div><div className="eyebrow">YOUR INTERACTIVE PATH</div><h2>Explore each step</h2><p>Career goal → phases → skills and milestones → target role · Drag to pan · Zoom only inside the map</p></div>
+        <div><div className="eyebrow">YOUR INTERACTIVE PATH</div><h2>Explore each step</h2><p>Follow the roadmap from top to bottom: beginner skills, then intermediate and advanced skills · Drag to pan · Zoom inside the map</p></div>
         <div className="map-controls"><button aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.25, value - 0.08))}>−</button><span>{Math.round(zoom * 100)}%</span><button aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.7, value + 0.08))}>+</button><button className="recenter-control" aria-label="Recenter roadmap" title="Fit the full roadmap in view" onClick={centerMap}>Recenter</button><button className="download-roadmap-control" aria-label="Download roadmap as a Word document" title="Download roadmap as a Word document" onClick={downloadRoadmap}><Icon name="book" size={14} /></button></div>
       </div>
       {downloadError && <p className="map-download-error" role="alert">{downloadError}</p>}
@@ -587,8 +589,9 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
         <div ref={mapViewportRef} className="roadmap-map-viewport" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={finishPan} onPointerCancel={finishPan}>
           <div className="roadmap-map" style={{ width: canvasWidth, height: canvasHeight, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
             <svg className="map-connectors" width={canvasWidth} height={canvasHeight} aria-hidden="true">
-              {edges.map((path, index) => <path key={index} d={path} className="map-connector" />)}
+              {edgePaths.map((path, index) => <path key={index} d={path} className="map-connector" />)}
             </svg>
+            {layerHeadings.map((layer) => <div key={layer.level} className="map-layer-heading" style={{ top: layer.y }}>{layer.level}</div>)}
             {graphNodes.map((node) => (
               <article
                 className={`map-node ${node.kind}${selectedNode?.id === node.id ? ' selected' : ''}`}
@@ -600,7 +603,7 @@ function InteractiveRoadmap({ roadmap, role, roadmapId, large = false }) {
                 aria-label={`${node.kind}: ${node.title}. Select for advice.`}
               >
                 <span className="map-node-icon"><Icon name={['skill', 'phase'].includes(node.kind) ? 'spark' : 'target'} size={15} /></span>
-                <span className="map-node-copy"><small>{({ root: 'CAREER GOAL', phase: 'PHASE', skill: 'SKILL', milestone: 'MILESTONE', goal: 'TARGET ROLE' })[node.kind]}</small><strong>{node.title}</strong><span>{node.detail}</span></span>
+                <span className="map-node-copy"><small>{node.kind === 'skill' ? node.phase : ({ root: 'CAREER GOAL', phase: 'PHASE', goal: 'TARGET ROLE' })[node.kind]}</small><strong>{node.title}</strong>{node.detail && <span>{node.detail}</span>}</span>
                 {node.kind === 'skill' && <button className="known-toggle" onClick={(event) => { event.stopPropagation(); toggleKnown(node) }}>I know this</button>}
               </article>
             ))}
