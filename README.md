@@ -90,39 +90,10 @@ Beyond the core goal of generating a career plan, CareerX includes:
 
 ### Setup
 
-1. Open a terminal in the application folder (the folder containing this README and `package.json`).
-2. Install dependencies:
-
-   ```sh
-   npm install
-   ```
-
-3. Copy `.env.example` to `.env.local` and set the values:
-
-   ```env
-   VITE_SUPABASE_URL=https://your-project-id.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-   CONTEXT_DEV_API_KEY=your-context-dev-api-key
-   ```
-
-   `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are used by the browser client and server. `CONTEXT_DEV_API_KEY` is server-side only. Do not commit `.env.local` or put the Context.dev key in a `VITE_` variable.
-
-4. In the Supabase SQL Editor, apply these project migrations in order to the existing schema:
-
-   - `supabase/migrations/20261008134500_add_roadmap_username.sql`
-   - `supabase/migrations/20261008135800_roadmap_nodes_owner_policies.sql`
-
-   The policies assume the `public.roadmaps` and `public.roadmap_nodes` tables already exist. Confirm the table columns match the application before running migrations in a different Supabase project.
-
-5. Start the development app:
-
-   ```sh
-   npm run dev
-   ```
-
-   Open `http://127.0.0.1:5173`. The script starts Vite and the Express API server. `GET /api/health` reports whether the server sees the Supabase and Context.dev configuration.
-
-6. Create an account through the app's sign-up page to test authenticated features. There is no shared test login or password in this repository. If testing password sign-in without email confirmation, use the intended email-confirmation setting in Supabase Auth; never publish real user credentials.
+Go to this Deployment Link :-
+for testing purposes:-
+   UserId- testuser2@gmail.com
+   password- 123456789
 
 ### Production checks
 
